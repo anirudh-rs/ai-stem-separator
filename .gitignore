@@ -1,0 +1,11 @@
+outputs/
+outputs_a/
+outputs_b/
+__pycache__/
+*.pyc
+.env
+model/
+features_30_sec.csv
+test_report.pdf
+test_report2.pdf
+test_report.csv

@@ -50,31 +50,34 @@ GENRE_COLORS = {
 }
 
 # ── Session state ─────────────────────────────────────────────
-for key in ["stem_data", "song_name", "all_features", "all_predictions"]:
+for key in [
+    "stem_data", "song_name", "all_features", "all_predictions",
+    "stem_data_b", "song_name_b", "all_features_b", "all_predictions_b"
+]:
     if key not in st.session_state:
         st.session_state[key] = None
 
 # ── Sidebar — upload & separate ───────────────────────────────
 with st.sidebar:
-    st.header("Upload Song")
-    uploaded_file = st.file_uploader(
-        "Choose an MP3 or WAV file",
+    st.header("Upload Songs")
+
+    # ── Song A ────────────────────────────────────────────────
+    st.markdown("#### 🅰️ Song A")
+    uploaded_file_a = st.file_uploader(
+        "Choose MP3 or WAV",
         type=["mp3", "wav"],
+        key="upload_a"
     )
-
-    if uploaded_file:
-        st.audio(uploaded_file, format="audio/mp3")
-        st.info(f"📄 `{uploaded_file.name}`")
-
-        if st.button("🚀 Separate & Analyze", use_container_width=True):
+    if uploaded_file_a:
+        st.audio(uploaded_file_a, format="audio/mp3")
+        if st.button("🚀 Analyze Song A", use_container_width=True):
             with tempfile.NamedTemporaryFile(
                 delete=False,
-                suffix=os.path.splitext(uploaded_file.name)[1]
+                suffix=os.path.splitext(uploaded_file_a.name)[1]
             ) as tmp:
-                tmp.write(uploaded_file.read())
+                tmp.write(uploaded_file_a.read())
                 tmp_path = tmp.name
 
-            # ── Step 1: Separate ──────────────────────────────
             with st.spinner("Step 1/3 — Separating stems..."):
                 try:
                     stems = separate_stems(tmp_path)
@@ -86,7 +89,7 @@ with st.sidebar:
                         else:
                             stem_data[stem_key] = None
                     st.session_state.stem_data = stem_data
-                    st.session_state.song_name = os.path.splitext(uploaded_file.name)[0]
+                    st.session_state.song_name = os.path.splitext(uploaded_file_a.name)[0]
                 except Exception as e:
                     st.error(f"Separation failed: {e}")
                     st.stop()
@@ -94,8 +97,7 @@ with st.sidebar:
                     if os.path.exists(tmp_path):
                         os.remove(tmp_path)
 
-            # ── Step 2: Extract features ──────────────────────
-            with st.spinner("Step 2/3 — Extracting audio features..."):
+            with st.spinner("Step 2/3 — Extracting features..."):
                 try:
                     st.session_state.all_features = extract_all_stems(
                         st.session_state.stem_data
@@ -104,7 +106,6 @@ with st.sidebar:
                     st.error(f"Feature extraction failed: {e}")
                     st.stop()
 
-            # ── Step 3: Classify genres ───────────────────────
             with st.spinner("Step 3/3 — Classifying genres..."):
                 try:
                     st.session_state.all_predictions = predict_all_stems(
@@ -114,32 +115,91 @@ with st.sidebar:
                     st.error(f"Classification failed: {e}")
                     st.stop()
 
-            st.success("✅ Analysis complete!")
+            st.success("✅ Song A ready!")
+
+    # ── Song B ────────────────────────────────────────────────
+    st.divider()
+    st.markdown("#### 🅱️ Song B — Compare")
+    uploaded_file_b = st.file_uploader(
+        "Choose MP3 or WAV",
+        type=["mp3", "wav"],
+        key="upload_b"
+    )
+    if uploaded_file_b:
+        st.audio(uploaded_file_b, format="audio/mp3")
+        if st.button("🚀 Analyze Song B", use_container_width=True):
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=os.path.splitext(uploaded_file_b.name)[1]
+            ) as tmp:
+                tmp.write(uploaded_file_b.read())
+                tmp_path = tmp.name
+
+            with st.spinner("Step 1/3 — Separating stems..."):
+                try:
+                    stems = separate_stems(tmp_path, output_dir="outputs_a")
+                    stems = separate_stems(tmp_path, output_dir="outputs_b")
+                    stem_data = {}
+                    for stem_key, stem_path in stems.items():
+                        if stem_path and os.path.exists(stem_path):
+                            with open(stem_path, "rb") as f:
+                                stem_data[stem_key] = f.read()
+                        else:
+                            stem_data[stem_key] = None
+                    st.session_state.stem_data_b = stem_data
+                    st.session_state.song_name_b = os.path.splitext(uploaded_file_b.name)[0]
+                except Exception as e:
+                    st.error(f"Separation failed: {e}")
+                    st.stop()
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+
+            with st.spinner("Step 2/3 — Extracting features..."):
+                try:
+                    st.session_state.all_features_b = extract_all_stems(
+                        st.session_state.stem_data_b
+                    )
+                except Exception as e:
+                    st.error(f"Feature extraction failed: {e}")
+                    st.stop()
+
+            with st.spinner("Step 3/3 — Classifying genres..."):
+                try:
+                    st.session_state.all_predictions_b = predict_all_stems(
+                        st.session_state.all_features_b
+                    )
+                except Exception as e:
+                    st.error(f"Classification failed: {e}")
+                    st.stop()
+
+            st.success("✅ Song B ready!")
 
     # ── Sidebar status ────────────────────────────────────────
-    if st.session_state.song_name:
-        st.divider()
-        st.markdown(f"**Current song:**")
-        st.markdown(f"`{st.session_state.song_name}`")
-        detected = [
-            k for k, v in st.session_state.stem_data.items()
-            if v is not None
-        ] if st.session_state.stem_data else []
-        st.markdown(f"**Detected stems:** {len(detected)}/6")
-        for s in detected:
-            st.markdown(f"  {STEM_META[s]['icon']} {STEM_META[s]['label']}")
-
+    st.divider()
+    for label, name_key, data_key in [
+        ("🅰️ Song A", "song_name",   "stem_data"),
+        ("🅱️ Song B", "song_name_b", "stem_data_b"),
+    ]:
+        name = st.session_state[name_key]
+        data = st.session_state[data_key]
+        if name:
+            st.markdown(f"**{label}:** `{name}`")
+            detected = [k for k, v in data.items() if v is not None]
+            st.markdown(f"Stems: {len(detected)}/6 — " +
+                       " ".join([STEM_META[s]['icon'] for s in detected]))
 # ── Main area — tabs ──────────────────────────────────────────
 if st.session_state.stem_data is None:
     st.info("👈 Upload a song in the sidebar to get started.")
     st.stop()
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🎵 Stems",
     "📊 Analytics Dashboard",
     "🎯 Genre Classification",
     "📄 Report",
-    "🧠 Model Performance"
+    "🧠 Model Performance",
+    "🔀 Compare Songs"
 ])
 
 # ══════════════════════════════════════════════════════════════
@@ -153,10 +213,34 @@ with tab1:
         "instruments sharing similar frequency ranges (e.g. piano & guitar) "
         "can occasionally be misassigned. This is a known open-source limitation."
     )
-    cols = st.columns(2)
 
+    # ── Song selector ─────────────────────────────────────────
+    has_b = st.session_state.stem_data_b is not None
+    if has_b:
+        selected = st.radio(
+            "Viewing stems for:",
+            ["🅰️ Song A", "🅱️ Song B"],
+            horizontal=True
+        )
+        active_data = (
+            st.session_state.stem_data if selected == "🅰️ Song A"
+            else st.session_state.stem_data_b
+        )
+        active_name = (
+            st.session_state.song_name if selected == "🅰️ Song A"
+            else st.session_state.song_name_b
+        )
+    else:
+        active_data = st.session_state.stem_data
+        active_name = st.session_state.song_name
+
+    st.markdown(f"**Now viewing:** `{active_name}`")
+    st.divider()
+
+    # ── Stem download & preview ───────────────────────────────
+    cols = st.columns(2)
     for i, (stem_key, meta) in enumerate(STEM_META.items()):
-        audio_bytes = st.session_state.stem_data.get(stem_key)
+        audio_bytes = active_data.get(stem_key)
         col = cols[i % 2]
         with col:
             st.markdown(f"**{meta['icon']} {meta['label']}**")
@@ -165,10 +249,10 @@ with tab1:
                 col.download_button(
                     label=f"⬇️ Download {meta['label']}",
                     data=audio_bytes,
-                    file_name=f"{st.session_state.song_name}_{stem_key}.mp3",
+                    file_name=f"{active_name}_{stem_key}.mp3",
                     mime="audio/mpeg",
                     use_container_width=True,
-                    key=f"dl_{stem_key}"
+                    key=f"dl_{stem_key}_{active_name}"
                 )
             else:
                 col.info("〰️ Not detected in this song")
@@ -177,7 +261,7 @@ with tab1:
     st.divider()
     st.subheader("📊 Waveform Comparison")
 
-    if st.session_state.stem_data:
+    if active_data:
         fig, axes = plt.subplots(
             len(STEM_META), 1,
             figsize=(10, 2 * len(STEM_META))
@@ -185,7 +269,7 @@ with tab1:
         fig.patch.set_facecolor('#0e1117')
 
         for ax, (stem_key, meta) in zip(axes, STEM_META.items()):
-            audio_bytes = st.session_state.stem_data.get(stem_key)
+            audio_bytes = active_data.get(stem_key)
             ax.set_facecolor('#0e1117')
             ax.tick_params(colors='white')
             for spine in ax.spines.values():
@@ -223,13 +307,33 @@ with tab1:
 # ══════════════════════════════════════════════════════════════
 with tab2:
     st.subheader("Audio Analytics Dashboard")
+    has_b_t2 = st.session_state.all_features_b is not None
+    if has_b_t2:
+        selected_t2 = st.radio(
+            "Viewing analytics for:",
+            ["🅰️ Song A", "🅱️ Song B"],
+            horizontal=True, key="radio_t2"
+        )
+        active_features_t2 = (
+            st.session_state.all_features if selected_t2 == "🅰️ Song A"
+            else st.session_state.all_features_b
+        )
+        active_name_t2 = (
+            st.session_state.song_name if selected_t2 == "🅰️ Song A"
+            else st.session_state.song_name_b
+        )
+    else:
+        active_features_t2 = st.session_state.all_features
+        active_name_t2     = st.session_state.song_name
 
-    if not st.session_state.all_features:
+    st.markdown(f"**Now viewing:** `{active_name_t2}`")
+
+    if not active_features_t2:
         st.info("No features extracted yet.")
         st.stop()
 
     detected_stems = {
-        k: v for k, v in st.session_state.all_features.items()
+        k: v for k, v in active_features_t2.items()
         if v is not None
     }
 
@@ -384,14 +488,35 @@ with tab2:
 # ══════════════════════════════════════════════════════════════
 with tab3:
     st.subheader("Genre Classification")
+    has_b_t3 = st.session_state.all_predictions_b is not None
+    if has_b_t3:
+        selected_t3 = st.radio(
+            "Viewing classification for:",
+            ["🅰️ Song A", "🅱️ Song B"],
+            horizontal=True, key="radio_t3"
+        )
+        active_preds_t3 = (
+            st.session_state.all_predictions if selected_t3 == "🅰️ Song A"
+            else st.session_state.all_predictions_b
+        )
+        active_name_t3 = (
+            st.session_state.song_name if selected_t3 == "🅰️ Song A"
+            else st.session_state.song_name_b
+        )
+    else:
+        active_preds_t3 = st.session_state.all_predictions
+        active_name_t3  = st.session_state.song_name
+
+    st.markdown(f"**Now viewing:** `{active_name_t3}`")
+
     st.caption("Each stem is classified independently using a Random Forest model trained on the GTZAN dataset.")
 
-    if not st.session_state.all_predictions:
+    if not active_preds_t3:
         st.info("No predictions yet.")
         st.stop()
 
     detected_preds = {
-        k: v for k, v in st.session_state.all_predictions.items()
+        k: v for k, v in active_preds_t3.items()
         if v is not None
     }
 
@@ -479,33 +604,65 @@ with tab3:
 # ══════════════════════════════════════════════════════════════
 with tab4:
     st.subheader("Stem Intelligence Report")
-    st.write("Download a full analysis report of this song as PDF or CSV.")
+    st.write("Download a full analysis report for either song as PDF or CSV.")
 
-    if not st.session_state.all_features or not st.session_state.all_predictions:
+    if not st.session_state.all_features and not st.session_state.all_features_b:
         st.info("Separate and analyze a song first to generate a report.")
         st.stop()
+
+    # ── Song selector ─────────────────────────────────────────
+    has_b_report = st.session_state.all_features_b is not None
+    if has_b_report:
+        selected_report = st.radio(
+            "Generate report for:",
+            ["🅰️ Song A", "🅱️ Song B"],
+            horizontal=True,
+            key="report_selector"
+        )
+        active_features    = (
+            st.session_state.all_features if selected_report == "🅰️ Song A"
+            else st.session_state.all_features_b
+        )
+        active_predictions = (
+            st.session_state.all_predictions if selected_report == "🅰️ Song A"
+            else st.session_state.all_predictions_b
+        )
+        active_name_report = (
+            st.session_state.song_name if selected_report == "🅰️ Song A"
+            else st.session_state.song_name_b
+        )
+    else:
+        active_features    = st.session_state.all_features
+        active_predictions = st.session_state.all_predictions
+        active_name_report = st.session_state.song_name
+
+    st.markdown(f"**Generating report for:** `{active_name_report}`")
+    st.divider()
 
     col1, col2 = st.columns(2)
 
     # ── PDF download ──────────────────────────────────────────
     with col1:
         st.markdown("#### PDF Report")
-        st.caption("Full formatted report with summary, genre classifications, audio features, and insights.")
-        if st.button("📄 Generate PDF", use_container_width=True):
+        st.caption(
+            "Full formatted report with summary, genre classifications, "
+            "audio features, and insights."
+        )
+        if st.button("📄 Generate PDF", use_container_width=True, key="btn_pdf"):
             with st.spinner("Generating PDF..."):
                 try:
                     pdf_bytes = generate_report(
-                        st.session_state.song_name,
-                        st.session_state.all_features,
-                        st.session_state.all_predictions
+                        active_name_report,
+                        active_features,
+                        active_predictions
                     )
                     st.download_button(
                         label="⬇️ Download PDF Report",
                         data=pdf_bytes,
-                        file_name=f"{st.session_state.song_name}_stem_report.pdf",
+                        file_name=f"{active_name_report}_stem_report.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="dl_pdf"
+                        key=f"dl_pdf_{active_name_report}"
                     )
                     st.success("PDF ready!")
                 except Exception as e:
@@ -514,35 +671,38 @@ with tab4:
     # ── CSV download ──────────────────────────────────────────
     with col2:
         st.markdown("#### CSV Data Export")
-        st.caption("Raw feature data and genre predictions for every stem — ready for Excel or further analysis.")
-        if st.button("📊 Generate CSV", use_container_width=True):
+        st.caption(
+            "Raw feature data and genre predictions for every stem — "
+            "ready for Excel or further analysis."
+        )
+        if st.button("📊 Generate CSV", use_container_width=True, key="btn_csv"):
             with st.spinner("Generating CSV..."):
                 try:
                     csv_bytes = generate_csv(
-                        st.session_state.song_name,
-                        st.session_state.all_features,
-                        st.session_state.all_predictions
+                        active_name_report,
+                        active_features,
+                        active_predictions
                     )
                     st.download_button(
                         label="⬇️ Download CSV",
                         data=csv_bytes,
-                        file_name=f"{st.session_state.song_name}_stem_data.csv",
+                        file_name=f"{active_name_report}_stem_data.csv",
                         mime="text/csv",
                         use_container_width=True,
-                        key="dl_csv"
+                        key=f"dl_csv_{active_name_report}"
                     )
                     st.success("CSV ready!")
                 except Exception as e:
                     st.error(f"CSV generation failed: {e}")
 
-    # ── Preview insights inline ───────────────────────────────
+    # ── Insights preview ──────────────────────────────────────
     st.divider()
     st.markdown("#### Key Insights Preview")
     from reporter import generate_insights
     insights = generate_insights(
-        [k for k, v in st.session_state.all_features.items() if v],
-        st.session_state.all_features,
-        st.session_state.all_predictions
+        [k for k, v in active_features.items() if v],
+        active_features,
+        active_predictions
     )
     for insight in insights:
         st.markdown(f"• {insight}")
@@ -661,4 +821,180 @@ with tab5:
             "Low accuracy on certain genres (e.g. Rock, Reggae) reflects overlapping "
             "audio characteristics in the GTZAN dataset — not a bug, but a known "
             "challenge in music genre classification research."
+        )
+
+# ══════════════════════════════════════════════════════════════
+# TAB 6 — Song Comparison
+# ══════════════════════════════════════════════════════════════
+with tab6:
+    st.subheader("Song Comparison")
+
+    has_a = st.session_state.stem_data is not None
+    has_b = st.session_state.stem_data_b is not None
+
+    if not has_a and not has_b:
+        st.info("👈 Upload and analyze both songs in the sidebar to compare them.")
+        st.stop()
+    elif not has_b:
+        st.info("👈 Upload and analyze Song B in the sidebar to enable comparison.")
+        st.stop()
+    elif not has_a:
+        st.info("👈 Upload and analyze Song A in the sidebar to enable comparison.")
+        st.stop()
+
+    name_a = st.session_state.song_name
+    name_b = st.session_state.song_name_b
+
+    # ── Waveform comparison ───────────────────────────────────
+    st.markdown("#### Waveform Comparison")
+    st.caption("Each row shows the same stem from both songs side by side.")
+
+    for stem_key, meta in STEM_META.items():
+        bytes_a = st.session_state.stem_data.get(stem_key)
+        bytes_b = st.session_state.stem_data_b.get(stem_key)
+
+        if not bytes_a and not bytes_b:
+            continue
+
+        st.markdown(f"**{meta['icon']} {meta['label']}**")
+        col_a, col_b = st.columns(2)
+
+        for col, audio_bytes, label in [
+            (col_a, bytes_a, name_a),
+            (col_b, bytes_b, name_b)
+        ]:
+            with col:
+                st.caption(label)
+                if audio_bytes:
+                    fig, ax = plt.subplots(figsize=(5, 1.2))
+                    fig.patch.set_facecolor('#0e1117')
+                    ax.set_facecolor('#0e1117')
+                    y, sr = librosa.load(
+                        io.BytesIO(audio_bytes),
+                        sr=None, mono=True, duration=30
+                    )
+                    times = np.linspace(0, len(y)/sr, num=len(y))
+                    ax.plot(times, y,
+                            color=WAVEFORM_COLORS.get(stem_key, "#aaa"),
+                            linewidth=0.4, alpha=0.85)
+                    ax.set_ylim(-1, 1)
+                    ax.tick_params(colors='white', labelsize=7)
+                    for spine in ax.spines.values():
+                        spine.set_edgecolor('#333')
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                else:
+                    st.info("〰️ Not detected")
+
+    # ── Feature comparison table ──────────────────────────────
+    st.divider()
+    st.markdown("#### Feature Comparison")
+    st.caption("Key audio metrics for each detected stem across both songs.")
+
+    comparison_rows = []
+    for stem_key, meta in STEM_META.items():
+        f_a = (st.session_state.all_features or {}).get(stem_key)
+        f_b = (st.session_state.all_features_b or {}).get(stem_key)
+
+        if not f_a and not f_b:
+            continue
+
+        def fmt(val):
+            return str(val) if val is not None else "—"
+
+        comparison_rows.append({
+            "Stem":                   f"{meta['icon']} {meta['label']}",
+            f"BPM ({name_a[:15]})":  fmt(f_a.get("tempo") if f_a else None),
+            f"BPM ({name_b[:15]})":  fmt(f_b.get("tempo") if f_b else None),
+            f"Energy ({name_a[:15]})": fmt(f_a.get("energy_mean") if f_a else None),
+            f"Energy ({name_b[:15]})": fmt(f_b.get("energy_mean") if f_b else None),
+            f"Brightness ({name_a[:15]})": fmt(f_a.get("spectral_centroid_mean") if f_a else None),
+            f"Brightness ({name_b[:15]})": fmt(f_b.get("spectral_centroid_mean") if f_b else None),
+        })
+
+    if comparison_rows:
+        st.dataframe(
+            pd.DataFrame(comparison_rows),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # ── Energy bar comparison ─────────────────────────────────
+    st.divider()
+    st.markdown("#### Energy by Stem — Side by Side")
+    st.caption("Which song has more energy per instrument.")
+
+    stems_with_both = [
+        s for s in STEM_META
+        if (st.session_state.all_features or {}).get(s)
+        or (st.session_state.all_features_b or {}).get(s)
+    ]
+
+    if stems_with_both:
+        x        = np.arange(len(stems_with_both))
+        width    = 0.35
+        vals_a   = [
+            (st.session_state.all_features or {}).get(s, {}) or {}
+            for s in stems_with_both
+        ]
+        vals_b   = [
+            (st.session_state.all_features_b or {}).get(s, {}) or {}
+            for s in stems_with_both
+        ]
+        energy_a = [v.get("energy_mean", 0) for v in vals_a]
+        energy_b = [v.get("energy_mean", 0) for v in vals_b]
+
+        fig, ax = plt.subplots(figsize=(9, 3))
+        fig.patch.set_facecolor('#0e1117')
+        ax.set_facecolor('#0e1117')
+
+        bars_a = ax.bar(x - width/2, energy_a, width,
+                        label=name_a[:20], color="#4fc3f7", edgecolor='none')
+        bars_b = ax.bar(x + width/2, energy_b, width,
+                        label=name_b[:20], color="#ffa726", edgecolor='none')
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(
+            [STEM_META[s]["label"] for s in stems_with_both],
+            color='white', fontsize=9
+        )
+        ax.tick_params(axis='y', colors='white')
+        ax.set_ylabel("Mean Energy", color='white', fontsize=9)
+        ax.legend(facecolor='#1a1a2e', labelcolor='white', fontsize=8)
+        for spine in ax.spines.values():
+            spine.set_edgecolor('#333')
+
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+    # ── Genre comparison ──────────────────────────────────────
+    st.divider()
+    st.markdown("#### Genre Classification — Side by Side")
+
+    preds_a = st.session_state.all_predictions or {}
+    preds_b = st.session_state.all_predictions_b or {}
+
+    genre_rows = []
+    for stem_key, meta in STEM_META.items():
+        pa = preds_a.get(stem_key)
+        pb = preds_b.get(stem_key)
+        if not pa and not pb:
+            continue
+        genre_rows.append({
+            "Stem": f"{meta['icon']} {meta['label']}",
+            f"Genre — {name_a[:20]}": (
+                f"{pa['top_genre'].title()} ({pa['confidence']}%)" if pa else "—"
+            ),
+            f"Genre — {name_b[:20]}": (
+                f"{pb['top_genre'].title()} ({pb['confidence']}%)" if pb else "—"
+            ),
+        })
+
+    if genre_rows:
+        st.dataframe(
+            pd.DataFrame(genre_rows),
+            use_container_width=True,
+            hide_index=True
         )

@@ -1,5 +1,14 @@
-torch
-torchaudio
-demucs
 streamlit
+numpy==1.26.4
 librosa
+matplotlib
+seaborn
+pandas
+scikit-learn
+xgboost
+joblib
+reportlab
+pydub
+torch==2.1.0
+torchaudio==2.1.0
+demucs
