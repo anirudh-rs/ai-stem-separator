@@ -11,4 +11,4 @@ reportlab
 pydub
 torch==2.9.0
 torchaudio==2.9.0
-demucs
+demucs==4.0.1
