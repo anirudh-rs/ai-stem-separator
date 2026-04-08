@@ -30,8 +30,9 @@ def separate_stems(input_path: str, output_dir: str = "outputs") -> dict:
     audio.export(wav_input, format="wav")
     safe_input = wav_input  # use converted file instead
 
+    import sys
     command = [
-        "python", "-m", "demucs",
+        sys.executable, "-m", "demucs",
         "--out", output_dir,
         "--mp3",
         "-n", "htdemucs_6s",
