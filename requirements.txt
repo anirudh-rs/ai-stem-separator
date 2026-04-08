@@ -3,3 +3,12 @@ torchaudio
 demucs
 streamlit
 librosa
+numpy==1.26.4
+matplotlib
+seaborn
+pandas
+scikit-learn
+xgboost
+joblib
+reportlab
+pydub
