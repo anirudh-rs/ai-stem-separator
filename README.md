@@ -24,4 +24,4 @@ analyzes audio features, classifies genres, and generates intelligence reports.
 - Confidence threshold of 55% applied — low confidence shown as Inconclusive
 
 ## Demo
-- The repository file contains a demo video showing the stem functionality
+- The repository contains a demo video showing the stem functionality
